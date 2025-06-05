@@ -5857,6 +5857,15 @@ rocksdb_sstfilewriter_t* rocksdb_sstfilewriter_create(
   return writer;
 }
 
+rocksdb_sstfilewriter_t* rocksdb_sstfilewriter_create_cf(
+  const rocksdb_envoptions_t* env,
+  const rocksdb_options_t* io_options,
+  rocksdb_column_family_handle_t* cfh){
+  rocksdb_sstfilewriter_t* writer = new rocksdb_sstfilewriter_t;
+  writer -> rep = new SstFileWriter(env->rep, io_options->rep, cfh->rep);
+  return writer;
+}
+
 void rocksdb_create_dir_if_missing(rocksdb_env_t* env, const char* path,
                                    char** errptr) {
   SaveError(errptr, env->rep->CreateDirIfMissing(std::string(path)));
