@@ -2471,6 +2471,21 @@ void rocksdb_create_iterators(rocksdb_t* db, rocksdb_readoptions_t* opts,
   }
 }
 
+rocksdb_iterator_t* rocksdb_create_iterator_coalescing(
+    rocksdb_t* db, const rocksdb_readoptions_t* options,
+    rocksdb_column_family_handle_t** handles,
+    size_t size) {
+  rocksdb_iterator_t* result = new rocksdb_iterator_t;
+  std::vector<ColumnFamilyHandle*> column_families;
+  for (size_t i = 0; i < size; i++) {
+    column_families.push_back(handles[i]->rep);
+  }
+
+  std::unique_ptr<Iterator> iter = db->rep->NewCoalescingIterator(options->rep, column_families);
+  result->rep= iter.release();
+  return result;
+}
+
 const rocksdb_snapshot_t* rocksdb_create_snapshot(rocksdb_t* db) {
   rocksdb_snapshot_t* result = new rocksdb_snapshot_t;
   result->rep = db->rep->GetSnapshot();
@@ -8362,6 +8377,20 @@ rocksdb_iterator_t* rocksdb_transaction_create_iterator_cf(
   return result;
 }
 
+rocksdb_iterator_t* rocksdb_transaction_create_iterator_coalescing(
+    rocksdb_transaction_t* txn, const rocksdb_readoptions_t* options,
+    rocksdb_column_family_handle_t** handles, size_t size) {
+  rocksdb_iterator_t* result = new rocksdb_iterator_t;
+  std::vector<ColumnFamilyHandle*> column_families;
+  for (size_t i = 0; i < size; i++) {
+    column_families.push_back(handles[i]->rep);
+  }
+
+  std::unique_ptr<Iterator> iter = txn->rep->GetCoalescingIterator(options->rep, column_families);
+  result->rep= iter.release();
+  return result;
+}
+
 // Create an iterator outside a transaction
 rocksdb_iterator_t* rocksdb_transactiondb_create_iterator(
     rocksdb_transactiondb_t* txn_db, const rocksdb_readoptions_t* options) {
@@ -8375,6 +8404,20 @@ rocksdb_iterator_t* rocksdb_transactiondb_create_iterator_cf(
     rocksdb_column_family_handle_t* column_family) {
   rocksdb_iterator_t* result = new rocksdb_iterator_t;
   result->rep = txn_db->rep->NewIterator(options->rep, column_family->rep);
+  return result;
+}
+
+rocksdb_iterator_t* rocksdb_transactiondb_create_iterator_coalescing(
+    rocksdb_transactiondb_t* txn_db, const rocksdb_readoptions_t* options,
+    rocksdb_column_family_handle_t** handles, size_t size) {
+  rocksdb_iterator_t* result = new rocksdb_iterator_t;
+  std::vector<ColumnFamilyHandle*> column_families;
+  for (size_t i = 0; i < size; i++) {
+    column_families.push_back(handles[i]->rep);
+  }
+
+  std::unique_ptr<Iterator> iter = txn_db->rep->NewCoalescingIterator(options->rep, column_families);
+  result->rep= iter.release();
   return result;
 }
 
