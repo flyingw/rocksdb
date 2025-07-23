@@ -95,6 +95,7 @@ typedef struct rocksdb_filelock_t rocksdb_filelock_t;
 typedef struct rocksdb_filterpolicy_t rocksdb_filterpolicy_t;
 typedef struct rocksdb_flushoptions_t rocksdb_flushoptions_t;
 typedef struct rocksdb_iterator_t rocksdb_iterator_t;
+typedef struct rocksdb_attributegroup_iterator_t rocksdb_attributegroup_iterator_t;
 typedef struct rocksdb_logger_t rocksdb_logger_t;
 typedef struct rocksdb_mergeoperator_t rocksdb_mergeoperator_t;
 typedef struct rocksdb_options_t rocksdb_options_t;
@@ -152,6 +153,9 @@ typedef struct rocksdb_eventlistener_t rocksdb_eventlistener_t;
 typedef struct rocksdb_writestallinfo_t rocksdb_writestallinfo_t;
 typedef struct rocksdb_writestallcondition_t rocksdb_writestallcondition_t;
 typedef struct rocksdb_memtableinfo_t rocksdb_memtableinfo_t;
+
+typedef struct rocksdb_pinnablewidecolumns_t rocksdb_pinnablewidecolumns_t;
+typedef struct rocksdb_widecolumns_t rocksdb_widecolumns_t;
 
 /* DB operations */
 
@@ -627,6 +631,10 @@ extern ROCKSDB_LIBRARY_API rocksdb_iterator_t* rocksdb_create_iterator_coalescin
     rocksdb_t* db, const rocksdb_readoptions_t* options,
     rocksdb_column_family_handle_t** column_families, size_t size);
 
+extern ROCKSDB_LIBRARY_API rocksdb_attributegroup_iterator_t* rocksdb_create_iterator_attribute_group(
+    rocksdb_t* db, const rocksdb_readoptions_t* options,
+    rocksdb_column_family_handle_t** column_families, size_t size);
+
 extern ROCKSDB_LIBRARY_API const rocksdb_snapshot_t* rocksdb_create_snapshot(
     rocksdb_t* db);
 
@@ -758,6 +766,14 @@ extern ROCKSDB_LIBRARY_API const char* rocksdb_iter_key(
     const rocksdb_iterator_t*, size_t* klen);
 extern ROCKSDB_LIBRARY_API const char* rocksdb_iter_value(
     const rocksdb_iterator_t*, size_t* vlen);
+extern ROCKSDB_LIBRARY_API const char* rocksdb_iter_columns(
+    const rocksdb_iterator_t*, size_t* len);
+extern ROCKSDB_LIBRARY_API void rocksdb_widecolumns_destroy(
+    rocksdb_widecolumns_t*);
+extern ROCKSDB_LIBRARY_API const char* rocksdb_widecolumns_value(
+    const rocksdb_widecolumns_t*, size_t* len);
+extern ROCKSDB_LIBRARY_API char** rocksdb_widecolumns_name(
+    const rocksdb_widecolumns_t*, size_t* len);
 extern ROCKSDB_LIBRARY_API const char* rocksdb_iter_timestamp(
     const rocksdb_iterator_t*, size_t* tslen);
 extern ROCKSDB_LIBRARY_API void rocksdb_iter_get_error(
@@ -2239,6 +2255,8 @@ extern ROCKSDB_LIBRARY_API void rocksdb_readoptions_set_timestamp(
 extern ROCKSDB_LIBRARY_API void rocksdb_readoptions_set_iter_start_ts(
     rocksdb_readoptions_t*, const char* ts, size_t tslen);
 extern ROCKSDB_LIBRARY_API void rocksdb_readoptions_set_auto_readahead_size(
+    rocksdb_readoptions_t*, unsigned char);
+extern ROCKSDB_LIBRARY_API void rocksdb_readoptions_set_allow_unprepared_value(
     rocksdb_readoptions_t*, unsigned char);
 
 /* Write options */
