@@ -129,6 +129,8 @@ TEST_F(OptionsSettableTest, BlockBasedTableOptionsAllFieldsSettable) {
        sizeof(CacheUsageOptions)},
       {offsetof(struct BlockBasedTableOptions, filter_policy),
        sizeof(std::shared_ptr<const FilterPolicy>)},
+      {offsetof(struct BlockBasedTableOptions, user_defined_index_factory),
+       sizeof(std::shared_ptr<UserDefinedIndexFactory>)},
   };
 
   // In this test, we catch a new option of BlockBasedTableOptions that is not
@@ -703,8 +705,11 @@ TEST_F(OptionsSettableTest, ColumnFamilyOptionsAllFieldsSettable) {
       new_options->compaction_options_fifo.file_temperature_age_thresholds[0]
           .age,
       12345);
-  ASSERT_EQ(new_options->compression_manager,
-            GetBuiltinCompressionManager(/*compression_format_version*/ 2));
+  // TODO: try to enhance ObjectLibrary to support singletons
+  // ASSERT_EQ(new_options->compression_manager,
+  //           GetBuiltinV2CompressionManager());
+  ASSERT_STREQ(new_options->compression_manager->Name(),
+               GetBuiltinV2CompressionManager()->Name());
 
   ColumnFamilyOptions rnd_filled_options = *new_options;
 

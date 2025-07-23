@@ -458,9 +458,10 @@ class CompactionJobTestBase : public testing::Test {
       ReadOptions read_opts;
       Status s = cf_options_.table_factory->NewTableReader(
           read_opts,
-          TableReaderOptions(cfd->ioptions(), nullptr, FileOptions(),
+          TableReaderOptions(cfd->ioptions(), /*prefix_extractor=*/nullptr,
+                             /*compression_manager=*/nullptr, FileOptions(),
                              cfd_->internal_comparator(),
-                             0 /* block_protection_bytes_per_key */),
+                             /*block_protection_bytes_per_key=*/0),
           std::move(freader), file_size, &table_reader, false);
       ASSERT_OK(s);
       assert(table_reader);
@@ -650,7 +651,8 @@ class CompactionJobTestBase : public testing::Test {
         mutable_cf_options_.max_compaction_bytes, 0, kNoCompression,
         cfd->GetLatestMutableCFOptions().compression_opts,
         Temperature::kUnknown, max_subcompactions, grandparents,
-        /*earliest_snapshot*/ std::nullopt, /*snapshot_checker*/ nullptr, true);
+        /*earliest_snapshot*/ std::nullopt, /*snapshot_checker*/ nullptr,
+        CompactionReason::kManualCompaction);
     compaction.FinalizeInputInfo(cfd->current());
 
     assert(db_options_.info_log);

@@ -1,6 +1,42 @@
 # Rocksdb Change Log
 > NOTE: Entries for next release do not go here. Follow instructions in `unreleased_history/README.txt`
 
+## 10.5.0 (07/18/2025)
+### Public API Changes
+* DB option skip_checking_sst_file_sizes_on_db_open is deprecated, in favor of validating file size in parallel in a thread pool, when db is opened. When DB is opened, with paranoid check enabled, a file with the wrong size would fail the DB open. With paranoid check disabled, the DB open would succeed, the column family with the corrupted file would not be read or write, while the other healthy column families could be read and write normally. When max_open_files option is not set to -1, only a subset of the files will be opened and checked. The rest of the files will be opened and checked when they are accessed.
+
+### Behavior Changes
+* PessimisticTransaction::GetWaitingTxns now returns waiting transaction information even if the current transaction has timed out. This allows the information to be surfaced to users for debugging purposes once it is known that the timeout has occured.
+* A new API GetFileSize is added to FSRandomAccessFile interface class. It uses fstat vs stat on the posix implementation which is more efficient. Caller could use it to get file size faster. This function might be required in the future for FileSystem implementation outside of the RocksDB code base.
+* RocksDB now triggers eligible compactions every 12 hours when periodic compaction is configured. This solves a limitation of the compaction trigger mechanism, which would only trigger compaction after specific events like flush, compaction, or SetOptions.
+
+### Bug Fixes
+* Fix a bug in BackupEngine that can crash backup due to a null FSWritableFile passed to WritableFileWriter.
+* Fix DB::NewMultiScan iterator to respect the scan upper bound specified in ScanOptions
+
+### Performance Improvements
+* Optimized MultiScan using BlockBasedTable to coalesce I/Os and prefetch all data blocks.
+
+## 10.4.0 (06/20/2025)
+### New Features
+* Add a new CF option `memtable_avg_op_scan_flush_trigger` that supports triggering memtable flush when an iterator scans through an expensive range of keys, with the average number of skipped keys from the active memtable exceeding the threshold.
+* Vector based memtable now supports concurrent writers (DBOptions::allow_concurrent_memtable_write) #13675.
+* Add new experimental `TransactionOptions::large_txn_commit_optimize_byte_threshold` to enable optimizations for large transaction commit by transaction batch data size.
+* Add a new option `CompactionOptionsUniversal::reduce_file_locking` and if it's true, auto universal compaction picking will adjust to minimize locking of input files when bottom priority compactions are waiting to run. This can increase the likelihood of existing L0s being selected for compaction, thereby improving write stall and reducing read regression.
+* Add new `format_version=7` to aid experimental support of custom compression algorithms with CompressionManager and block-based table. This format version includes changing the format of `TableProperties::compression_name`.
+
+### Public API Changes
+* Change NewExternalTableFactory to return a unique_ptr instead of shared_ptr.
+* Add an optional min file size requirement for deletion triggered compaction. It can be specified when creating `CompactOnDeletionCollectorFactory`.
+
+### Behavior Changes
+* `TransactionOptions::large_txn_commit_optimize_threshold` now has default value 0 for disabled. `TransactionDBOptions::txn_commit_bypass_memtable_threshold` now has no effect on transactions.
+
+### Bug Fixes
+* Fix a bug where CreateColumnFamilyWithImport() could miss the SST file for the memtable flush it triggered. The exported CF then may not contain the updates in the memtable when CreateColumnFamilyWithImport() is called.
+* Fix iterator operations returning NotImplemented status if disallow_memtable_writes and paranoid_memory_checks CF options are both set.
+* Fixed handling of file checksums in IngestExternalFile() to allow providing checksums using recognized but not necessarily the DB's preferred checksum function, to ease migration between checksum functions.
+
 ## 10.3.0 (05/17/2025)
 ### New Features
 * Add new experimental `CompactionOptionsFIFO::allow_trivial_copy_when_change_temperature` along with `CompactionOptionsFIFO::trivial_copy_buffer_size` to allow optimizing FIFO compactions with tiering when kChangeTemperature to move files from source tier FileSystem to another tier FileSystem via trivial and direct copying raw sst file instead of reading thru the content of the SST file then rebuilding the table files.

@@ -46,6 +46,7 @@
 #include "table/block_based/filter_policy_internal.h"
 #include "table/block_based/full_filter_block.h"
 #include "table/block_based/partitioned_filter_block.h"
+#include "table/block_based/user_defined_index_wrapper.h"
 #include "table/format.h"
 #include "table/meta_blocks.h"
 #include "table/table_builder.h"
@@ -408,7 +409,15 @@ struct BlockBasedTableBuilder::ParallelCompressionRep {
     }
   }
 
-  ~ParallelCompressionRep() { block_rep_pool.finish(); }
+  ~ParallelCompressionRep() {
+    block_rep_pool.finish();
+#ifndef NDEBUG
+    // Silence ASSERT_STATUS_CHECKED warnings
+    for (auto& block_rep : block_rep_buf) {
+      assert(block_rep.status.ok());
+    }
+#endif
+  }
 
   // Make a block prepared to be emitted to compression thread
   // Used in non-buffered mode
@@ -524,6 +533,7 @@ struct BlockBasedTableBuilder::Rep {
   std::string last_ikey;  // Internal key or empty (unset)
   const Slice* first_key_in_next_block = nullptr;
   bool warm_cache = false;
+  bool uses_explicit_compression_manager = false;
 
   uint64_t sample_for_compression;
   std::atomic<uint64_t> compressible_input_data_bytes;
@@ -559,6 +569,11 @@ struct BlockBasedTableBuilder::Rep {
   // Once configured/determined, points to one of the above Decompressors to use
   // in verifying data blocks.
   UnownedPtr<Decompressor> data_block_verify_decompressor;
+
+  // Set of compression types used for blocks in this file (mixing compression
+  // algorithms in a single file is allowed, using a CompressionManager)
+  SmallEnumSet<CompressionType, kDisableCompressionOption>
+      compression_types_used;
 
   // Working area for basic_compressor when compression_parallel_threads==1
   WorkingAreaPair basic_working_area;
@@ -770,15 +785,25 @@ struct BlockBasedTableBuilder::Rep {
       assert(filter_context.level_at_creation < filter_context.num_levels);
     }
 
-    // TODO: get CompressionManager from options and sort out properties
-    auto mgr = tbo.moptions.compression_manager;
-    if (mgr == nullptr) {
-      mgr = GetBuiltinCompressionManager(
-          GetCompressFormatForVersion(table_opt.format_version));
-    }
-    props.compression_name = CompressionTypeToString(tbo.compression_type);
     props.compression_options =
         CompressionOptionsToString(tbo.compression_opts);
+
+    auto* mgr = tbo.moptions.compression_manager.get();
+    if (mgr == nullptr) {
+      uses_explicit_compression_manager = false;
+      mgr = GetBuiltinCompressionManager(
+                GetCompressFormatForVersion(
+                    static_cast<uint32_t>(table_opt.format_version)))
+                .get();
+    } else {
+      uses_explicit_compression_manager = true;
+
+      // Stuff some extra debugging info as extra pseudo-options. Using
+      // underscore prefix to indicate they are special.
+      props.compression_options.append("_compression_manager=");
+      props.compression_options.append(mgr->GetId());
+      props.compression_options.append("; ");
+    }
 
     // Sanitize to only allowing compression when it saves space.
     max_compressed_bytes_per_kb =
@@ -810,22 +835,23 @@ struct BlockBasedTableBuilder::Rep {
               data_block_compressor->ObtainWorkingArea();
         }
       }
-      basic_decompressor =
-          mgr->GetDecompressorOptimizeFor(tbo.compression_type);
+      basic_decompressor = mgr->GetDecompressorForCompressor(*basic_compressor);
       create_context.decompressor = basic_decompressor.get();
 
       if (table_options.verify_compression) {
         verify_decompressor = basic_decompressor.get();
         if (table_options.enable_index_compression) {
-          basic_working_area.verify =
-              verify_decompressor->ObtainWorkingArea(tbo.compression_type);
+          basic_working_area.verify = verify_decompressor->ObtainWorkingArea(
+              basic_compressor->GetPreferredCompressionType());
         }
         if (state == State::kUnbuffered) {
+          assert(data_block_compressor);
+          data_block_verify_decompressor = verify_decompressor.get();
           for (uint32_t i = 0; i < compression_parallel_threads; i++) {
             data_block_working_areas[i].verify =
-                verify_decompressor->ObtainWorkingArea(tbo.compression_type);
+                data_block_verify_decompressor->ObtainWorkingArea(
+                    data_block_compressor->GetPreferredCompressionType());
           }
-          data_block_verify_decompressor = verify_decompressor.get();
         }
       }
     }
@@ -872,6 +898,27 @@ struct BlockBasedTableBuilder::Rep {
           &this->internal_prefix_transform, use_delta_encoding_for_index_values,
           table_options, ts_sz, persist_user_defined_timestamps));
     }
+
+    // If user_defined_index_factory is provided, wrap the index builder with
+    // UserDefinedIndexWrapper
+    if (table_options.user_defined_index_factory != nullptr) {
+      if (tbo.moptions.compression_opts.parallel_threads > 1 ||
+          tbo.moptions.bottommost_compression_opts.parallel_threads > 1) {
+        SetStatus(
+            Status::InvalidArgument("user_defined_index_factory not supported "
+                                    "with parallel compression"));
+      } else {
+        std::unique_ptr<UserDefinedIndexBuilder> user_defined_index_builder(
+            table_options.user_defined_index_factory->NewBuilder());
+        if (user_defined_index_builder != nullptr) {
+          index_builder.reset(new UserDefinedIndexBuilderWrapper(
+              std::string(table_options.user_defined_index_factory->Name()),
+              std::move(index_builder), std::move(user_defined_index_builder),
+              &internal_comparator, ts_sz, persist_user_defined_timestamps));
+        }
+      }
+    }
+
     if (ioptions.optimize_filters_for_hits && tbo.is_bottommost) {
       // Apply optimize_filters_for_hits setting here when applicable by
       // skipping filter generation
@@ -930,6 +977,7 @@ struct BlockBasedTableBuilder::Rep {
     // Default is UINT64_MAX for unknown. Setting it to 0 here
     // to allow updating it by taking max in BlockBasedTableBuilder::Add().
     props.key_largest_seqno = 0;
+    PrePopulateCompressionProperties(mgr);
 
     if (FormatVersionUsesContextChecksum(table_options.format_version)) {
       // Must be non-zero and semi- or quasi-random
@@ -953,6 +1001,95 @@ struct BlockBasedTableBuilder::Rep {
 
   Rep(const Rep&) = delete;
   Rep& operator=(const Rep&) = delete;
+
+  void PrePopulateCompressionProperties(UnownedPtr<CompressionManager> mgr) {
+    if (FormatVersionUsesCompressionManagerName(table_options.format_version)) {
+      assert(mgr);
+      // Use newer compression_name property
+      props.compression_name.reserve(32);
+      // If compression is disabled, use empty manager name
+      if (basic_compressor) {
+        props.compression_name.append(mgr->CompatibilityName());
+      }
+      props.compression_name.push_back(';');
+      // Rest of property to be filled out at the end of building the file
+    } else {
+      // Use legacy compression_name property, populated at the end of building
+      // the file. Not compatible with compression managers using custom
+      // algorithms / compression types.
+      assert(Slice(mgr->CompatibilityName())
+                 .compare(GetBuiltinCompressionManager(
+                              GetCompressFormatForVersion(
+                                  static_cast<uint32_t>(props.format_version)))
+                              ->CompatibilityName()) == 0);
+    }
+  }
+  void PostPopulateCompressionProperties() {
+    // Do not include "no compression" in the set. It's not really useful
+    // information whether there are any uncompressed blocks. Some kinds of
+    // blocks are never compressed anyway.
+    compression_types_used.Remove(kNoCompression);
+    size_t ctype_count = compression_types_used.count();
+
+    if (uses_explicit_compression_manager) {
+      // Stuff some extra debugging info as extra pseudo-options. Using
+      // underscore prefix to indicate they are special.
+      std::string& compression_options = props.compression_options;
+      compression_options.append("_compressor=");
+      compression_options.append(data_block_compressor
+                                     ? data_block_compressor->GetId()
+                                     : std::string{});
+      compression_options.append("; ");
+    } else {
+      // No explicit compression manager
+      assert(compression_types_used.count() <= 1);
+    }
+
+    std::string& compression_name = props.compression_name;
+    if (FormatVersionUsesCompressionManagerName(table_options.format_version)) {
+      // Fill in extended field of "compression name" property, which is the set
+      // of compression types used, sorted by unsigned byte and then hex
+      // encoded with two digits each (so that table properties are human
+      // readable).
+      assert(*compression_name.rbegin() == ';');
+      size_t pos = compression_name.size();
+      // Make space for the field contents
+      compression_name.append(ctype_count * 2, '\0');
+      char* ptr = compression_name.data() + pos;
+      // Populate the field contents
+      for (CompressionType t : compression_types_used) {
+        PutBaseChars<16>(&ptr, /*digits=*/2, static_cast<unsigned char>(t),
+                         /*uppercase=*/true);
+      }
+      assert(ptr == compression_name.data() + pos + ctype_count * 2);
+      // Allow additional fields in the future
+      compression_name.push_back(';');
+    } else {
+      // Use legacy compression naming. To adhere to requirements described in
+      // TableProperties::compression_name, we might have to replace the name
+      // based on the legacy configured compression type.
+      assert(compression_name.empty());
+      if (ctype_count == 0) {
+        // We could get a slight performance boost in the reader by marking the
+        // file as "no compression" if compression is configured but
+        // consistently rejected, but that would give misleading info for
+        // debugging purposes. So instead we record the configured compression
+        // type, matching the historical behavior.
+        if (data_block_compressor) {
+          compression_name = CompressionTypeToString(
+              data_block_compressor->GetPreferredCompressionType());
+        } else {
+          assert(basic_compressor == nullptr);
+          compression_name = CompressionTypeToString(kNoCompression);
+        }
+      } else if (compression_types_used.Contains(kZSTD)) {
+        compression_name = CompressionTypeToString(kZSTD);
+      } else {
+        compression_name =
+            CompressionTypeToString(*compression_types_used.begin());
+      }
+    }
+  }
 
  private:
   // Synchronize status & io_status accesses across threads from main thread,
@@ -1085,7 +1222,7 @@ void BlockBasedTableBuilder::Add(const Slice& ikey, const Slice& value) {
       // `Finish()` once compression dictionary has been finalized.
     } else {
       if (!r->IsParallelCompressionEnabled()) {
-        r->index_builder->OnKeyAdded(ikey);
+        r->index_builder->OnKeyAdded(ikey, value);
       }
     }
     // TODO offset passed in is not accurate for parallel compression case
@@ -1432,6 +1569,7 @@ void BlockBasedTableBuilder::WriteMaybeCompressedBlock(
     }
   }
 
+  r->compression_types_used.Add(comp_type);
   std::array<char, kBlockTrailerSize> trailer;
   trailer[0] = comp_type;
   uint32_t checksum = ComputeBuiltinChecksumWithLastByte(
@@ -1526,7 +1664,7 @@ void BlockBasedTableBuilder::BGWorkWriteMaybeCompressedBlock() {
         r->filter_builder->AddWithPrevKey(key_no_ts, prev_key_no_ts);
         prev_key_no_ts = key_no_ts;
       }
-      r->index_builder->OnKeyAdded(key);
+      r->index_builder->OnKeyAdded(key, {});
     }
     if (r->filter_builder != nullptr) {
       prev_block_last_key_no_ts.assign(prev_key_no_ts.data(),
@@ -1700,7 +1838,13 @@ void BlockBasedTableBuilder::WriteIndexBlock(
   if (ok()) {
     for (const auto& item : index_blocks.meta_blocks) {
       BlockHandle block_handle;
-      WriteBlock(item.second, &block_handle, BlockType::kIndex);
+      if (item.second.first == BlockType::kIndex) {
+        WriteBlock(item.second.second, &block_handle, item.second.first);
+      } else {
+        assert(item.second.first == BlockType::kUserDefinedIndex);
+        WriteMaybeCompressedBlock(item.second.second, kNoCompression,
+                                  &block_handle, item.second.first);
+      }
       if (!ok()) {
         break;
       }
@@ -1746,8 +1890,8 @@ void BlockBasedTableBuilder::WriteIndexBlock(
     }
   }
   // If success and need to record in metaindex rather than footer...
-  if (!FormatVersionUsesIndexHandleInFooter(
-          rep_->table_options.format_version)) {
+  if (ok() && !FormatVersionUsesIndexHandleInFooter(
+                  rep_->table_options.format_version)) {
     meta_index_builder->Add(kIndexBlockName, *index_block_handle);
   }
 }
@@ -1783,6 +1927,9 @@ void BlockBasedTableBuilder::WritePropertiesBlock(
     }
     property_collectors_names += "]";
     rep_->props.property_collectors_names = property_collectors_names;
+
+    rep_->PostPopulateCompressionProperties();
+
     if (rep_->table_options.index_type ==
         BlockBasedTableOptions::kTwoLevelIndexSearch) {
       assert(rep_->p_index_builder_ != nullptr);
@@ -1930,6 +2077,8 @@ void BlockBasedTableBuilder::EnterUnbuffered() {
   if (kNumBlocksBuffered == 0) {
     // The below code is neither safe nor necessary for handling zero data
     // blocks.
+    // For PostPopulateCompressionProperties()
+    r->data_block_compressor = r->basic_compressor.get();
     return;
   }
 
@@ -1966,6 +2115,8 @@ void BlockBasedTableBuilder::EnterUnbuffered() {
       buffer_idx -= kNumBlocksBuffered;
     }
   }
+
+  assert(samples.sample_data.size() > 0);
 
   // final sample data block flushed, now we can generate dictionary
   r->compressor_with_dict = r->basic_compressor->MaybeCloneSpecialized(
@@ -2069,7 +2220,7 @@ void BlockBasedTableBuilder::EnterUnbuffered() {
           r->filter_builder->Add(
               ExtractUserKeyAndStripTimestamp(key, r->ts_sz));
         }
-        r->index_builder->OnKeyAdded(key);
+        r->index_builder->OnKeyAdded(key, iter->value());
       }
       WriteBlock(Slice(data_block), &r->pending_handle, BlockType::kData);
       if (ok() && i + 1 < r->data_block_buffers.size()) {
