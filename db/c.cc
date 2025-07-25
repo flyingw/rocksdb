@@ -49,7 +49,6 @@
 #include "rocksdb/write_batch.h"
 #include "rocksdb/write_buffer_manager.h"
 #include "rocksdb/wide_columns.h"
-#include "rocksdb/multi_scan.h"
 #include "db/wide/wide_column_serialization.h"
 #include "rocksdb/attribute_groups.h"
 #include "db/attribute_group_iterator_impl.h"
@@ -101,7 +100,6 @@ using ROCKSDB_NAMESPACE::LevelMetaData;
 using ROCKSDB_NAMESPACE::LiveFileMetaData;
 using ROCKSDB_NAMESPACE::Logger;
 using ROCKSDB_NAMESPACE::LRUCacheOptions;
-using ROCKSDB_NAMESPACE::MultiScan;
 using ROCKSDB_NAMESPACE::MemoryAllocator;
 using ROCKSDB_NAMESPACE::MemoryUtil;
 using ROCKSDB_NAMESPACE::MemTableInfo;
@@ -124,7 +122,6 @@ using ROCKSDB_NAMESPACE::RateLimiter;
 using ROCKSDB_NAMESPACE::ReadOptions;
 using ROCKSDB_NAMESPACE::RestoreOptions;
 using ROCKSDB_NAMESPACE::SequentialFile;
-using ROCKSDB_NAMESPACE::ScanOptions;
 using ROCKSDB_NAMESPACE::Slice;
 using ROCKSDB_NAMESPACE::SliceParts;
 using ROCKSDB_NAMESPACE::SliceTransform;
@@ -182,9 +179,6 @@ struct rocksdb_iterator_t {
 struct rocksdb_attributegroup_iterator_t {
   AttributeGroupIterator* rep;
 };
-struct rocksdb_multi_scan_t {
-  MultiScan* rep;
-};
 struct rocksdb_writebatch_t {
   WriteBatch rep;
 };
@@ -193,9 +187,6 @@ struct rocksdb_writebatch_wi_t {
 };
 struct rocksdb_snapshot_t {
   const Snapshot* rep;
-};
-struct rocksdb_scanoptions_t {
-  ScanOptions rep;
 };
 struct rocksdb_flushoptions_t {
   FlushOptions rep;
@@ -1846,23 +1837,6 @@ rocksdb_attributegroup_iterator_t* rocksdb_create_iterator_attribute_group(
 
   std::unique_ptr<AttributeGroupIterator> iter = db->rep->NewAttributeGroupIterator(options->rep, column_families);
   result->rep= iter.release();
-  return result;
-}
-
-rocksdb_multi_scan_t* rocksdb_create_multi_scan(
-  rocksdb_t* db, const rocksdb_readoptions_t* options,
-  rocksdb_scanoptions_t** scan_options,
-  rocksdb_column_family_handle_t* column_family,
-  size_t size) {
-
-  rocksdb_multi_scan_t* result = new rocksdb_multi_scan_t;
-  std::vector<ScanOptions> scan_opts;
-  for (size_t i = 0; i < size; i++) {
-    scan_opts.push_back(scan_options[i] -> rep);
-  }
-
-  std::unique_ptr<MultiScan> iter = db->rep->NewMultiScan(options->rep, column_family->rep, scan_opts);
-  result -> rep = iter.release();
   return result;
 }
 
