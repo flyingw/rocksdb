@@ -156,8 +156,6 @@ typedef struct rocksdb_memtableinfo_t rocksdb_memtableinfo_t;
 
 typedef struct rocksdb_pinnablewidecolumns_t rocksdb_pinnablewidecolumns_t;
 typedef struct rocksdb_widecolumns_t rocksdb_widecolumns_t;
-typedef struct rocksdb_multi_scan_t rocksdb_multi_scan_t;
-typedef struct rocksdb_scanoptions_t rocksdb_scanoptions_t;
 
 /* DB operations */
 
@@ -636,13 +634,6 @@ extern ROCKSDB_LIBRARY_API rocksdb_iterator_t* rocksdb_create_iterator_coalescin
 extern ROCKSDB_LIBRARY_API rocksdb_attributegroup_iterator_t* rocksdb_create_iterator_attribute_group(
     rocksdb_t* db, const rocksdb_readoptions_t* options,
     rocksdb_column_family_handle_t** column_families, size_t size);
-
-
-extern ROCKSDB_LIBRARY_API rocksdb_multi_scan_t* rocksdb_create_multi_scan(
-  rocksdb_t* db, const rocksdb_readoptions_t* options,
-  rocksdb_scanoptions_t** scan_options,
-  rocksdb_column_family_handle_t* column_family,
-  size_t size);
 
 extern ROCKSDB_LIBRARY_API const rocksdb_snapshot_t* rocksdb_create_snapshot(
     rocksdb_t* db);
@@ -2354,14 +2345,6 @@ extern ROCKSDB_LIBRARY_API void rocksdb_flushoptions_set_wait(
     rocksdb_flushoptions_t*, unsigned char);
 extern ROCKSDB_LIBRARY_API unsigned char rocksdb_flushoptions_get_wait(
     rocksdb_flushoptions_t*);
-
-
-/* Read options */
-
-extern ROCKSDB_LIBRARY_API rocksdb_scanoptions_t* rocksdb_scanoptions_create(
-    const char* start, size_t len);
-extern ROCKSDB_LIBRARY_API void rocksdb_scanoptions_destroy(
-    rocksdb_scanoptions_t*);
 
 /* Memory allocator */
 

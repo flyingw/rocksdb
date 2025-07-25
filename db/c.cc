@@ -49,6 +49,7 @@
 #include "rocksdb/write_batch.h"
 #include "rocksdb/write_buffer_manager.h"
 #include "rocksdb/wide_columns.h"
+#include "rocksdb/multi_scan.h"
 #include "db/wide/wide_column_serialization.h"
 #include "rocksdb/attribute_groups.h"
 #include "db/attribute_group_iterator_impl.h"
@@ -1856,7 +1857,6 @@ rocksdb_multi_scan_t* rocksdb_create_multi_scan(
 
   rocksdb_multi_scan_t* result = new rocksdb_multi_scan_t;
   std::vector<ScanOptions> scan_opts;
-
   for (size_t i = 0; i < size; i++) {
     scan_opts.push_back(scan_options[i] -> rep);
   }
@@ -5247,18 +5247,6 @@ rocksdb_mergeoperator_t* rocksdb_mergeoperator_create(
 
 void rocksdb_mergeoperator_destroy(rocksdb_mergeoperator_t* merge_operator) {
   delete merge_operator;
-}
-
-rocksdb_scanoptions_t* rocksdb_scanoptions_create(const char* start, size_t len) {
-  Slice range(start, len);
-  ScanOptions ops(range);
-  rocksdb_scanoptions_t* result = new rocksdb_scanoptions_t{ ops };
-
-  return result;
-}
-
-void rocksdb_scanoptions_destroy(rocksdb_scanoptions_t* opt) {
-  delete opt;
 }
 
 rocksdb_readoptions_t* rocksdb_readoptions_create() {
