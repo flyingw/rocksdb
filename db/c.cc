@@ -147,6 +147,7 @@ using ROCKSDB_NAMESPACE::WriteBufferManager;
 using ROCKSDB_NAMESPACE::WriteOptions;
 using ROCKSDB_NAMESPACE::WriteStallCondition;
 using ROCKSDB_NAMESPACE::WriteStallInfo;
+using ROCKSDB_NAMESPACE::WideColumn;
 using ROCKSDB_NAMESPACE::WideColumns;
 using ROCKSDB_NAMESPACE::PinnableWideColumns;
 using ROCKSDB_NAMESPACE::WideColumnSerialization;
@@ -2116,8 +2117,12 @@ void rocksdb_iter_attribute_groups(const rocksdb_iterator_attributegroup_t* iter
 
   for(size_t i = 0; i < groups.size(); i++) {
     const WideColumns& cols  = groups[i].columns();
-    Status s = WideColumnSerialization::Serialize(cols, outs[i]);
-   
+    ColumnFamilyHandle* cf   = groups[i].column_family();
+    std::vector<WideColumn> cols2(cols.size());
+    std::transform(cols.begin(), cols.end(), cols2.begin(), [&cf](WideColumn c){ return WideColumn(cf->GetName(), c.value()); });
+
+    Status s = WideColumnSerialization::Serialize(cols2, outs[i]);
+
     if (s.ok()) {
       group_list[i] = CopyString(outs[i]);
       group_list_sizes[i] = outs[i].size();
