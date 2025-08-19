@@ -2132,9 +2132,12 @@ void rocksdb_iter_attribute_groups(
 
     for(size_t i=0; i<groups.size(); i++){
       const WideColumns& cols = groups[i].columns();
-      //ColumnFamilyHandle* cf = groups[i].column_family();
+      ColumnFamilyHandle* cf = groups[i].column_family();
 
-      const Status s = WideColumnSerialization::Serialize(cols, outs[i]);
+      std::vector<WideColumn> cols2(cols.size());
+      std::transform(cols.begin(), cols.end(), cols2.begin(), [&cf](WideColumn c){ return WideColumn(cf->GetName(), c.value()); });
+
+      const Status s = WideColumnSerialization::Serialize(cols2, outs[i]);
 
       if(s.ok()) {
         group_list[i] = CopyString(outs[i]);
