@@ -147,6 +147,7 @@ using ROCKSDB_NAMESPACE::WriteBufferManager;
 using ROCKSDB_NAMESPACE::WriteOptions;
 using ROCKSDB_NAMESPACE::WriteStallCondition;
 using ROCKSDB_NAMESPACE::WriteStallInfo;
+using ROCKSDB_NAMESPACE::WideColumn;
 using ROCKSDB_NAMESPACE::WideColumns;
 using ROCKSDB_NAMESPACE::PinnableWideColumns;
 using ROCKSDB_NAMESPACE::WideColumnSerialization;
