@@ -759,11 +759,17 @@ extern ROCKSDB_LIBRARY_API void rocksdb_repair_db(
 extern ROCKSDB_LIBRARY_API void rocksdb_iter_atg_destroy(rocksdb_iterator_atg_t*);
 extern ROCKSDB_LIBRARY_API void rocksdb_iter_atg_seek_to_first(rocksdb_iterator_atg_t*);
 extern ROCKSDB_LIBRARY_API void rocksdb_iter_atg_seek_to_last(rocksdb_iterator_atg_t*);
+extern ROCKSDB_LIBRARY_API void rocksdb_iter_atg_seek(rocksdb_iterator_atg_t*,
+                                                  const char* k, size_t klen);
+extern ROCKSDB_LIBRARY_API void rocksdb_iter_atg_seek_for_prev(rocksdb_iterator_atg_t*,
+                                                           const char* k,
+                                                           size_t klen);
 extern ROCKSDB_LIBRARY_API const char* rocksdb_iter_atg_key(
     const rocksdb_iterator_atg_t*, size_t* klen);
 extern ROCKSDB_LIBRARY_API unsigned char rocksdb_iter_atg_valid(
     const rocksdb_iterator_atg_t*);
 extern ROCKSDB_LIBRARY_API void rocksdb_iter_atg_next(rocksdb_iterator_atg_t*);
+extern ROCKSDB_LIBRARY_API void rocksdb_iter_atg_prev(rocksdb_iterator_atg_t*);
 extern ROCKSDB_LIBRARY_API void rocksdb_iter_attribute_groups(
   const rocksdb_iterator_atg_t* iter,
   char*** values_list,
@@ -782,7 +788,6 @@ extern ROCKSDB_LIBRARY_API void rocksdb_iter_seek_for_prev(rocksdb_iterator_t*,
                                                            const char* k,
                                                            size_t klen);
 extern ROCKSDB_LIBRARY_API void rocksdb_iter_next(rocksdb_iterator_t*);
-
 extern ROCKSDB_LIBRARY_API void rocksdb_iter_prev(rocksdb_iterator_t*);
 extern ROCKSDB_LIBRARY_API const char* rocksdb_iter_key(
     const rocksdb_iterator_t*, size_t* klen);
