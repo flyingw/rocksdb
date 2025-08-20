@@ -2105,6 +2105,10 @@ void rocksdb_iter_atg_seek_to_first(rocksdb_iterator_atg_t* iter) {
   iter->rep->SeekToFirst();
 }
 
+void rocksdb_iter_atg_seek_to_last(rocksdb_iterator_atg_t* iter) {
+  iter->rep->SeekToLast();
+}
+
 void rocksdb_iter_atg_next(rocksdb_iterator_atg_t* iter) { iter->rep->Next(); }
 
 unsigned char rocksdb_iter_atg_valid(const rocksdb_iterator_atg_t* iter) {
@@ -2136,7 +2140,7 @@ void rocksdb_iter_attribute_groups(
       ColumnFamilyHandle* cf = groups[i].column_family();
 
       std::vector<WideColumn> cols2(cols.size());
-      std::transform(cols.begin(), cols.end(), cols2.begin(), [&cf](WideColumn c){ return WideColumn(cf->GetName(), c.value()); });
+      std::transform(cols.begin(), cols.end(), cols2.begin(), [&cf](WideColumn c){ return WideColumn(cf->GetName().c_str(), c.value()); });
 
       const Status s = WideColumnSerialization::Serialize(cols2, outs[i]);
 
