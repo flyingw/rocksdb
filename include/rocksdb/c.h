@@ -772,10 +772,8 @@ extern ROCKSDB_LIBRARY_API void rocksdb_iter_atg_next(rocksdb_iterator_atg_t*);
 extern ROCKSDB_LIBRARY_API void rocksdb_iter_atg_prev(rocksdb_iterator_atg_t*);
 extern ROCKSDB_LIBRARY_API void rocksdb_iter_attribute_groups(
   const rocksdb_iterator_atg_t* iter,
-  char*** values_list,
-  size_t** values_list_sizes,
-  char*** errs,
-  size_t* len);
+  rocksdb_widecolumns_t*** values_list,
+  size_t* values_list_sizes);
 
 extern ROCKSDB_LIBRARY_API void rocksdb_iter_destroy(rocksdb_iterator_t*);
 extern ROCKSDB_LIBRARY_API unsigned char rocksdb_iter_valid(
@@ -799,7 +797,7 @@ extern ROCKSDB_LIBRARY_API void rocksdb_widecolumns_destroy(
     rocksdb_widecolumns_t*);
 extern ROCKSDB_LIBRARY_API const char* rocksdb_widecolumns_value(
     const rocksdb_widecolumns_t*, size_t* len);
-extern ROCKSDB_LIBRARY_API char** rocksdb_widecolumns_name(
+extern ROCKSDB_LIBRARY_API const char* rocksdb_widecolumns_name(
     const rocksdb_widecolumns_t*, size_t* len);
 extern ROCKSDB_LIBRARY_API const char* rocksdb_iter_timestamp(
     const rocksdb_iterator_t*, size_t* tslen);

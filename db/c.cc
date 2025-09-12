@@ -2133,53 +2133,24 @@ const char* rocksdb_iter_atg_key(const rocksdb_iterator_atg_t* iter, size_t* kle
 }
 void rocksdb_iter_attribute_groups(
   const rocksdb_iterator_atg_t* iter,
-  char*** values_list,
-  size_t** values_list_sizes,
-  char*** errs,
-  size_t* len) {
+  rocksdb_widecolumns_t*** values_list,
+  size_t* values_list_sizes) {
 
     const IteratorAttributeGroups& groups = iter->rep->attribute_groups();
-    *len = groups.size();
-    std::vector<std::string> outs(groups.size());
     
-    char** group_list = (char**)malloc(groups.size() * sizeof(char*));
-    size_t* group_list_sizes = (size_t*)malloc(groups.size() * sizeof(size_t));
-    char** error_list = (char**)malloc(groups.size() * sizeof(char*));
+    *values_list_sizes = groups.size();
+    *values_list = (rocksdb_widecolumns_t**)malloc(sizeof(rocksdb_widecolumns_t*) * groups.size());
 
-    for(size_t i=0; i<groups.size(); i++){
-      const WideColumns& cols = groups[i].columns();
-      ColumnFamilyHandle* cf = groups[i].column_family();
-
-      std::vector<WideColumn> cols2(cols.size());
-      std::transform(cols.begin(), cols.end(), cols2.begin(), [&cf](WideColumn c){ return WideColumn(cf->GetName().c_str(), c.value()); });
-
-      const Status s = WideColumnSerialization::Serialize(cols2, outs[i]);
-
-      if(s.ok()) {
-        group_list[i] = CopyString(outs[i]);
-        group_list_sizes[i] = outs[i].size();
-        error_list[i] = nullptr;
-      } else {
-        error_list[i] = strdup(s.ToString().c_str());
-        group_list[i] = nullptr;
-        group_list_sizes[i] = 0;
-      }
-
-      *values_list = group_list;
-      *values_list_sizes = group_list_sizes;
-      *errs = error_list;
+    for (size_t i = 0; i < groups.size(); i++) {
+        const WideColumns& cols = groups[i].columns();
+        ColumnFamilyHandle* cf = groups[i].column_family();
+        WideColumns new_cols;
+        for (const auto& col : cols) {
+            new_cols.emplace_back(cf->GetName().c_str(), col.value());
+        }
+        rocksdb_widecolumns_t* wc = new rocksdb_widecolumns_t{new_cols};
+        (*values_list)[i] = wc;
     }
-
-  // const WideColumns& columns  = iter->rep-> columns();
-  // std::string out;
-
-  // const Status s = WideColumnSerialization::Serialize(columns, out);
-  // if (!s.ok()){
-  //   //
-  //   return nullptr;
-  // }
-  // *len = out.size();
-  // return out.c_str();//CopyString(out);
 }
 
 void rocksdb_iter_destroy(rocksdb_iterator_t* iter) {
@@ -7717,28 +7688,25 @@ const char* rocksdb_pinnableslice_value(const rocksdb_pinnableslice_t* v,
 }
 
 const char* rocksdb_widecolumns_value(const rocksdb_widecolumns_t* v, size_t* len) {
-  std::string out;
+ if (v->rep.empty()) {
+        *len = 0;
+        return nullptr;
+    }
 
-  const Status s = WideColumnSerialization::Serialize(v->rep, out);
-  if (!s.ok()){
-    return nullptr;
-  }
-  *len = out.size();
-  return out.c_str();
+    const WideColumn& first_col = v->rep[0];
+    *len = first_col.value().size();
+    return first_col.value().data();
 }
 
-char** rocksdb_widecolumns_name(const rocksdb_widecolumns_t* v, size_t* len) {
-  *len = v->rep.size();
-  char** names = static_cast<char**>(malloc(sizeof(char*) * *len ));
+const char* rocksdb_widecolumns_name(const rocksdb_widecolumns_t* v, size_t* len) {
+ if (v->rep.empty()) {
+        *len = 0;
+        return nullptr;
+    }
 
-  for (size_t i = 0; i < *len; i++) {
-    rocksdb::WideColumn column(v->rep[i]);
-    Slice name(column.name());
-
-    names[i] = strdup(name.data());
-  }
-
-  return names;
+    const WideColumn& first_col = v->rep[0];
+    *len = first_col.name().size();
+    return first_col.name().data();
 }
 
 void rocksdb_widecolumns_destroy(rocksdb_widecolumns_t* v) { delete v; }
