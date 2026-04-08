@@ -191,7 +191,7 @@ struct rocksdb_restore_options_t {
 struct rocksdb_iterator_t {
   Iterator* rep;
 };
-struct rocksdb_iterator_attributegroup_t {
+struct rocksdb_iterator_atg_t {
   AttributeGroupIterator* rep;
 };
 struct rocksdb_writebatch_t {
@@ -2508,11 +2508,12 @@ rocksdb_iterator_t* rocksdb_create_iterator_coalescing(
   return result;
 }
 
-rocksdb_iterator_attributegroup_t* rocksdb_create_iterator_attribute_group(
-    rocksdb_t* db, const rocksdb_readoptions_t* options,
+rocksdb_iterator_atg_t* rocksdb_create_iterator_atg(
+    rocksdb_t* db,
     rocksdb_column_family_handle_t** handles,
-    size_t size) {
-  rocksdb_iterator_attributegroup_t* result = new rocksdb_iterator_attributegroup_t;
+    size_t size,
+    const rocksdb_readoptions_t* options) {
+  rocksdb_iterator_atg_t* result = new rocksdb_iterator_atg_t;
   std::vector<ColumnFamilyHandle*> column_families;
   for (size_t i = 0; i < size; i++) {
     column_families.push_back(handles[i]->rep);
@@ -2762,62 +2763,47 @@ void rocksdb_iter_destroy(rocksdb_iterator_t* iter) {
   delete iter;
 }
 
-void rocksdb_iter_attributegroup_destroy(rocksdb_iterator_attributegroup_t* iter) {
+void rocksdb_iter_atg_destroy(rocksdb_iterator_atg_t* iter) {
   delete iter->rep;
   delete iter;
 }
 
-unsigned char rocksdb_iter_atg_valid(const rocksdb_iterator_attributegroup_t* iter) {
+unsigned char rocksdb_iter_atg_valid(const rocksdb_iterator_atg_t* iter) {
   return iter->rep->Valid();
 }
 
-const char* rocksdb_iter_atg_key(const rocksdb_iterator_attributegroup_t* iter, size_t* klen) {
+const char* rocksdb_iter_atg_key(const rocksdb_iterator_atg_t* iter, size_t* klen) {
   Slice s = iter->rep->key();
   *klen = s.size();
   return s.data();
 }
 
-void rocksdb_iter_atg_next(rocksdb_iterator_attributegroup_t* iter) {
+void rocksdb_iter_atg_next(rocksdb_iterator_atg_t* iter) {
   iter->rep->Next(); 
 }
-void rocksdb_iter_atg_seek_to_first(rocksdb_iterator_attributegroup_t* iter) {
+void rocksdb_iter_atg_seek_to_first(rocksdb_iterator_atg_t* iter) {
   iter->rep->SeekToFirst(); 
 }
 
-void rocksdb_iter_attribute_groups(const rocksdb_iterator_attributegroup_t* iter,
-                                  char*** values_list,
-                                  size_t** values_list_sizes,
-                                  char*** errs,
-                                  size_t* len) {
+void rocksdb_iter_attribute_groups(const rocksdb_iterator_atg_t* iter,
+  rocksdb_widecolumns_t*** values_list,
+  size_t* values_list_sizes) {
+
   const IteratorAttributeGroups& groups = iter->rep->attribute_groups();
-  *len = groups.size();
-  std::vector<std::string> outs(groups.size());
+    
+    *values_list_sizes = groups.size();
+    *values_list = (rocksdb_widecolumns_t**)malloc(sizeof(rocksdb_widecolumns_t*) * groups.size());
 
-  char** group_list = (char**)malloc(groups.size() * sizeof(char*));
-  size_t* group_list_sizes = (size_t*)malloc(groups.size() * sizeof(size_t));
-  char** error_list = (char**)malloc(groups.size() * sizeof(char*));
-
-  for(size_t i = 0; i < groups.size(); i++) {
-    const WideColumns& cols  = groups[i].columns();
-    ColumnFamilyHandle* cf   = groups[i].column_family();
-    std::vector<WideColumn> cols2(cols.size());
-    std::transform(cols.begin(), cols.end(), cols2.begin(), [&cf](WideColumn c){ return WideColumn(cf->GetName(), c.value()); });
-
-    Status s = WideColumnSerialization::Serialize(cols2, outs[i]);
-
-    if (s.ok()) {
-      group_list[i] = CopyString(outs[i]);
-      group_list_sizes[i] = outs[i].size();
-      error_list[i] = nullptr;
-    } else {
-      error_list[i] = strdup(s.ToString().c_str());
-      group_list[i] = nullptr;
-      group_list_sizes[i] = 0;
+    for (size_t i = 0; i < groups.size(); i++) {
+        const WideColumns& cols = groups[i].columns();
+        ColumnFamilyHandle* cf = groups[i].column_family();
+        WideColumns new_cols;
+        for (const auto& col : cols) {
+            new_cols.emplace_back(cf->GetName().c_str(), col.value());
+        }
+        rocksdb_widecolumns_t* wc = new rocksdb_widecolumns_t{new_cols};
+        (*values_list)[i] = wc;
     }
-  }
-  *values_list = group_list;
-  *values_list_sizes = group_list_sizes;
-  *errs = error_list;
 }
 
 unsigned char rocksdb_iter_valid(const rocksdb_iterator_t* iter) {
@@ -8511,10 +8497,9 @@ rocksdb_iterator_t* rocksdb_transaction_create_iterator_coalescing(
   return result;
 }
 
-rocksdb_iterator_attributegroup_t* rocksdb_transaction_create_iterator_attribute_group(
-    rocksdb_transaction_t* txn, const rocksdb_readoptions_t* options,
-    rocksdb_column_family_handle_t** handles, size_t size) {
-  rocksdb_iterator_attributegroup_t* result = new rocksdb_iterator_attributegroup_t;
+rocksdb_iterator_atg_t* rocksdb_transaction_create_iterator_atg(
+    rocksdb_transaction_t* txn, rocksdb_column_family_handle_t** handles, size_t size,  const rocksdb_readoptions_t* options) {
+  rocksdb_iterator_atg_t* result = new rocksdb_iterator_atg_t;
   std::vector<ColumnFamilyHandle*> column_families;
   for (size_t i = 0; i < size; i++) {
     column_families.push_back(handles[i]->rep);
@@ -8555,10 +8540,9 @@ rocksdb_iterator_t* rocksdb_transactiondb_create_iterator_coalescing(
   return result;
 }
 
-rocksdb_iterator_attributegroup_t* rocksdb_transactiondb_create_iterator_attribute_group(
-    rocksdb_transactiondb_t* txn, const rocksdb_readoptions_t* options,
-    rocksdb_column_family_handle_t** handles, size_t size) {
-  rocksdb_iterator_attributegroup_t* result = new rocksdb_iterator_attributegroup_t;
+rocksdb_iterator_atg_t* rocksdb_transactiondb_create_iterator_atg(
+    rocksdb_transactiondb_t* txn, rocksdb_column_family_handle_t** handles, size_t size, const rocksdb_readoptions_t* options) {
+  rocksdb_iterator_atg_t* result = new rocksdb_iterator_atg_t;
   std::vector<ColumnFamilyHandle*> column_families;
   for (size_t i = 0; i < size; i++) {
     column_families.push_back(handles[i]->rep);
