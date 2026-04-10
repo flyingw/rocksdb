@@ -2768,6 +2768,27 @@ void rocksdb_iter_atg_destroy(rocksdb_iterator_atg_t* iter) {
   delete iter;
 }
 
+void rocksdb_iter_atg_seek_to_first(rocksdb_iterator_atg_t* iter) {
+  iter->rep->SeekToFirst();
+}
+
+void rocksdb_iter_atg_seek_to_last(rocksdb_iterator_atg_t* iter) {
+  iter->rep->SeekToLast();
+}
+
+void rocksdb_iter_atg_seek(rocksdb_iterator_atg_t* iter, const char* k, size_t klen) {
+  iter->rep->Seek(Slice(k, klen));
+}
+
+void rocksdb_iter_atg_seek_for_prev(rocksdb_iterator_atg_t* iter, const char* k,
+                                size_t klen) {
+  iter->rep->SeekForPrev(Slice(k, klen));
+}
+
+void rocksdb_iter_atg_next(rocksdb_iterator_atg_t* iter) { iter->rep->Next(); }
+
+void rocksdb_iter_atg_prev(rocksdb_iterator_atg_t* iter) { iter->rep->Prev(); }
+
 unsigned char rocksdb_iter_atg_valid(const rocksdb_iterator_atg_t* iter) {
   return iter->rep->Valid();
 }
@@ -2776,13 +2797,6 @@ const char* rocksdb_iter_atg_key(const rocksdb_iterator_atg_t* iter, size_t* kle
   Slice s = iter->rep->key();
   *klen = s.size();
   return s.data();
-}
-
-void rocksdb_iter_atg_next(rocksdb_iterator_atg_t* iter) {
-  iter->rep->Next(); 
-}
-void rocksdb_iter_atg_seek_to_first(rocksdb_iterator_atg_t* iter) {
-  iter->rep->SeekToFirst(); 
 }
 
 void rocksdb_iter_attribute_groups(const rocksdb_iterator_atg_t* iter,
