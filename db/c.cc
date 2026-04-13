@@ -8766,28 +8766,25 @@ const char* rocksdb_pinnableslice_value(const rocksdb_pinnableslice_t* v,
 }
 
 const char* rocksdb_widecolumns_value(const rocksdb_widecolumns_t* v, size_t* len) {
-  std::string out;
+ if (v->rep.empty()) {
+        *len = 0;
+        return nullptr;
+    }
 
-  const Status s = WideColumnSerialization::Serialize(v->rep, out);
-  if (!s.ok()){
-    return nullptr;
-  }
-  *len = out.size();
-  return out.c_str();
+    const WideColumn& first_col = v->rep[0];
+    *len = first_col.value().size();
+    return first_col.value().data();
 }
 
-char** rocksdb_widecolumns_name(const rocksdb_widecolumns_t* v, size_t* len) {
-  *len = v->rep.size();
-  char** names = static_cast<char**>(malloc(sizeof(char*) * *len ));
+const char* rocksdb_widecolumns_name(const rocksdb_widecolumns_t* v, size_t* len) {
+ if (v->rep.empty()) {
+        *len = 0;
+        return nullptr;
+    }
 
-  for (size_t i = 0; i < *len; i++) {
-    rocksdb::WideColumn column(v->rep[i]);
-    Slice name(column.name());
-
-    names[i] = strdup(name.data());
-  }
-
-  return names;
+    const WideColumn& first_col = v->rep[0];
+    *len = first_col.name().size();
+    return first_col.name().data();
 }
 
 void rocksdb_widecolumns_destroy(rocksdb_widecolumns_t* v) { delete v; }
