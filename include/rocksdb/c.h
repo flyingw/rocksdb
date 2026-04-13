@@ -858,7 +858,7 @@ extern ROCKSDB_LIBRARY_API void rocksdb_widecolumns_destroy(
     rocksdb_widecolumns_t*);
 extern ROCKSDB_LIBRARY_API const char* rocksdb_widecolumns_value(
     const rocksdb_widecolumns_t*, size_t* len);
-extern ROCKSDB_LIBRARY_API char** rocksdb_widecolumns_name(
+extern ROCKSDB_LIBRARY_API const char** rocksdb_widecolumns_name(
     const rocksdb_widecolumns_t*, size_t* len);
 extern ROCKSDB_LIBRARY_API const char* rocksdb_iter_timestamp(
     const rocksdb_iterator_t*, size_t* tslen);
