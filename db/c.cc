@@ -613,6 +613,15 @@ struct rocksdb_perfcontext_t {
 struct rocksdb_pinnableslice_t {
   PinnableSlice rep;
 };
+struct rocksdb_pinnablewidecolumns_t {
+  PinnableWideColumns rep;
+};
+struct rocksdb_widecolumns_t {
+  WideColumns rep;
+};
+struct rocksdb_attributegroups_t {
+  IteratorAttributeGroups rep;
+};
 struct rocksdb_pinnable_multi_get_t {
   static constexpr size_t kNotFound = std::numeric_limits<size_t>::max();
 
