@@ -19,8 +19,8 @@ public class WalIteratorTest {
   @Test
   public void walIterator() throws RocksDBException {
     try (final Options options = new Options().setCreateIfMissing(true);
-        final RocksDB db = RocksDB.open(options, dbFolder.getRoot().getAbsolutePath());
-        final WalIterator walIterator = db.getUpdatesSince(0)) {
+         final RocksDB db = RocksDB.open(options, dbFolder.getRoot().getAbsolutePath());
+         final WalIterator walIterator = db.getUpdatesSince(0)) {
       //no-op
     }
   }

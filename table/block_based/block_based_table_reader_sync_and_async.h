@@ -23,15 +23,14 @@ namespace ROCKSDB_NAMESPACE {
 // @param uncompression_dict Data for presetting the compression library's
 //    dictionary.
 template <typename TBlocklike>
-DEFINE_SYNC_AND_ASYNC(Status, ReadAndParseBlockFromFile)(
-    RandomAccessFileReader* file, FilePrefetchBuffer* prefetch_buffer,
-    const Footer& footer, const ReadOptions& options, const BlockHandle& handle,
-    std::unique_ptr<TBlocklike>* result, const ImmutableOptions& ioptions,
-    BlockCreateContext& create_context, bool maybe_compressed,
-    UnownedPtr<Decompressor> decomp,
-    const PersistentCacheOptions& cache_options,
-    MemoryAllocator* memory_allocator, bool for_compaction, bool async_read,
-    ReadScopedBlockBufferProviderRef block_buffer_provider = std::nullopt) {
+DEFINE_SYNC_AND_ASYNC(Status, ReadAndParseBlockFromFile)
+(RandomAccessFileReader* file, FilePrefetchBuffer* prefetch_buffer,
+ const Footer& footer, const ReadOptions& options, const BlockHandle& handle,
+ std::unique_ptr<TBlocklike>* result, const ImmutableOptions& ioptions,
+ BlockCreateContext& create_context, bool maybe_compressed,
+ UnownedPtr<Decompressor> decomp, const PersistentCacheOptions& cache_options,
+ MemoryAllocator* memory_allocator, bool for_compaction, bool async_read,
+ ReadScopedBlockBufferProviderRef block_buffer_provider = std::nullopt) {
   assert(result);
 
   BlockContents contents;
@@ -69,13 +68,13 @@ DEFINE_SYNC_AND_ASYNC(Status, ReadAndParseBlockFromFile)(
 // it inserts the block into the block cache.
 template <typename TBlocklike>
 DEFINE_SYNC_AND_ASYNC(BlocklikeStatus<TBlocklike>,
-                      BlockBasedTable::MaybeReadBlockAndLoadToCache)(
-    FilePrefetchBuffer* prefetch_buffer, const ReadOptions& ro,
-    const BlockHandle& handle, UnownedPtr<Decompressor> decomp,
-    bool for_compaction, CachableEntry<TBlocklike>* out_parsed_block,
-    GetContext* get_context, BlockCacheLookupContext* lookup_context,
-    BlockContents* contents, bool async_read,
-    bool use_block_cache_for_lookup) const {
+                      BlockBasedTable::MaybeReadBlockAndLoadToCache)
+(FilePrefetchBuffer* prefetch_buffer, const ReadOptions& ro,
+ const BlockHandle& handle, UnownedPtr<Decompressor> decomp,
+ bool for_compaction, CachableEntry<TBlocklike>* out_parsed_block,
+ GetContext* get_context, BlockCacheLookupContext* lookup_context,
+ BlockContents* contents, bool async_read,
+ bool use_block_cache_for_lookup) const {
   assert(out_parsed_block != nullptr);
   const bool no_io = (ro.read_tier == kBlockCacheTier);
   BlockCacheInterface<TBlocklike> block_cache{
@@ -236,12 +235,12 @@ DEFINE_SYNC_AND_ASYNC(BlocklikeStatus<TBlocklike>,
 
 template <typename TBlocklike /*, auto*/>
 DEFINE_SYNC_AND_ASYNC(BlocklikeStatus<TBlocklike>,
-                      BlockBasedTable::RetrieveBlock)(
-    FilePrefetchBuffer* prefetch_buffer, const ReadOptions& ro,
-    const BlockHandle& handle, UnownedPtr<Decompressor> decomp,
-    CachableEntry<TBlocklike>* out_parsed_block, GetContext* get_context,
-    BlockCacheLookupContext* lookup_context, bool for_compaction,
-    bool use_cache, bool async_read, bool use_block_cache_for_lookup) const {
+                      BlockBasedTable::RetrieveBlock)
+(FilePrefetchBuffer* prefetch_buffer, const ReadOptions& ro,
+ const BlockHandle& handle, UnownedPtr<Decompressor> decomp,
+ CachableEntry<TBlocklike>* out_parsed_block, GetContext* get_context,
+ BlockCacheLookupContext* lookup_context, bool for_compaction, bool use_cache,
+ bool async_read, bool use_block_cache_for_lookup) const {
   assert(out_parsed_block);
   assert(out_parsed_block->IsEmpty());
 
@@ -320,12 +319,12 @@ DEFINE_SYNC_AND_ASYNC(BlocklikeStatus<TBlocklike>,
 // If input_iter is null, new a iterator
 // If input_iter is not null, update this iter and return it
 template <typename TBlockIter>
-DEFINE_SYNC_AND_ASYNC(TBlockIter*, BlockBasedTable::NewDataBlockIterator)(
-    const ReadOptions& ro, const BlockHandle& handle, TBlockIter* input_iter,
-    BlockType block_type, GetContext* get_context,
-    BlockCacheLookupContext* lookup_context,
-    FilePrefetchBuffer* prefetch_buffer, bool for_compaction, bool async_read,
-    Status& s, bool use_block_cache_for_lookup) const {
+DEFINE_SYNC_AND_ASYNC(TBlockIter*, BlockBasedTable::NewDataBlockIterator)
+(const ReadOptions& ro, const BlockHandle& handle, TBlockIter* input_iter,
+ BlockType block_type, GetContext* get_context,
+ BlockCacheLookupContext* lookup_context, FilePrefetchBuffer* prefetch_buffer,
+ bool for_compaction, bool async_read, Status& s,
+ bool use_block_cache_for_lookup) const {
   static_assert(std::is_same_v<TBlockIter, DataBlockIter> ||
                 std::is_same_v<TBlockIter, IndexBlockIter>);
   using IterBlocklike =
@@ -445,9 +444,9 @@ DEFINE_SYNC_AND_ASYNC(TBlockIter*, BlockBasedTable::NewDataBlockIterator)(
 // If input_iter is null, new a iterator
 // If input_iter is not null, update this iter and return it
 template <typename TBlockIter>
-DEFINE_SYNC_AND_ASYNC(TBlockIter*, BlockBasedTable::NewDataBlockIterator)(
-    const ReadOptions& ro, CachableEntry<Block>& block, TBlockIter* input_iter,
-    Status s) const {
+DEFINE_SYNC_AND_ASYNC(TBlockIter*, BlockBasedTable::NewDataBlockIterator)
+(const ReadOptions& ro, CachableEntry<Block>& block, TBlockIter* input_iter,
+ Status s) const {
   PERF_TIMER_GUARD(new_table_block_iter_nanos);
 
   TBlockIter* iter = input_iter != nullptr ? input_iter : new TBlockIter;

@@ -238,9 +238,10 @@ int lock_request::wait(uint64_t wait_time_ms) {
 }
 
 int lock_request::wait(uint64_t wait_time_ms, uint64_t killed_time_ms,
-                       int (*killed_callback)(void*), void* killed_callback_arg,
-                       void (*lock_wait_callback)(void*, lock_wait_infos*),
-                       void* callback_arg) {
+                       int (*killed_callback)(void *),
+                       void *killed_callback_arg,
+                       void (*lock_wait_callback)(void *, lock_wait_infos *),
+                       void *callback_arg) {
   uint64_t t_now = toku_current_time_microsec();
   uint64_t t_start = t_now;
   uint64_t t_end = t_start + wait_time_ms * 1000;

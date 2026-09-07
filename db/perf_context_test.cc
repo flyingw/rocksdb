@@ -305,9 +305,7 @@ TEST_F(PerfContextTest, CoroutineStatsContextRestoredOnForeignThread) {
           get_iostats_context()->Reset();
           get_perf_context()->block_read_count = 41;
           get_iostats_context()->bytes_read = 43;
-          {
-            folly::RequestContextScopeGuard guard(captured_context);
-          }
+          { folly::RequestContextScopeGuard guard(captured_context); }
           foreign_block_read_count = get_perf_context()->block_read_count;
           foreign_bytes_read = get_iostats_context()->bytes_read;
         });

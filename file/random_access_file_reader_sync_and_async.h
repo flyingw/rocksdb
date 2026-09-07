@@ -60,8 +60,8 @@ inline folly::coro::Task<void> SubmitMultiReadAsync(
 
 DEFINE_SYNC_AND_ASYNC(IOStatus, RandomAccessFileReader::Read)
 (const IOOptions& opts, uint64_t offset, size_t n, Slice* result, char* scratch,
- AlignedBufferAllocationContext* direct_io_buffer_context, IODebugContext* dbg)
-    const {
+ AlignedBufferAllocationContext* direct_io_buffer_context,
+ IODebugContext* dbg) const {
   AlignedBuffer* direct_io_buffer = direct_io_buffer_context != nullptr
                                         ? direct_io_buffer_context->buffer
                                         : nullptr;
@@ -289,8 +289,8 @@ DEFINE_SYNC_AND_ASYNC(IOStatus, RandomAccessFileReader::Read)
 
 DEFINE_SYNC_AND_ASYNC(IOStatus, RandomAccessFileReader::MultiRead)
 (const IOOptions& opts, FSReadRequest* read_reqs, size_t num_reqs,
- AlignedBufferAllocationContext* direct_io_buffer_context, IODebugContext* dbg)
-    const {
+ AlignedBufferAllocationContext* direct_io_buffer_context,
+ IODebugContext* dbg) const {
   assert(num_reqs > 0);
   AlignedBuffer* direct_io_buffer = direct_io_buffer_context != nullptr
                                         ? direct_io_buffer_context->buffer
