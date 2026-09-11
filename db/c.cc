@@ -3631,17 +3631,11 @@ const char* rocksdb_iter_columns(const rocksdb_iterator_t* iter, size_t* len) {
 
   const Status s = WideColumnSerialization::Serialize(columns, out);
   if (!s.ok()) {
-    //
     return nullptr;
   }
   *len = out.size();
-  return out.c_str();  // CopyString(out);
-}
 
-rocksdb_widecolumns_t* rocksdb_iter_columns2(const rocksdb_iterator_t* iter) {
-  rocksdb_widecolumns_t* c = new rocksdb_widecolumns_t;
-  c->rep = iter->rep->columns();
-  return c;
+  return CopyString(Slice(out));
 }
 
 const char* rocksdb_iter_timestamp(const rocksdb_iterator_t* iter,
